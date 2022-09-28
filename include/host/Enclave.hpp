@@ -63,6 +63,7 @@ class Enclave {
   void* getSharedBuffer();
   size_t getSharedBufferSize();
   Error registerOcallDispatch(OcallFunc func);
+  Error init(const char* filepath, Params parameters);
   Error init(const char* filepath, const char* runtime, Params parameters);
   Error init(
       const char* eapppath, const char* runtimepath, Params _params,

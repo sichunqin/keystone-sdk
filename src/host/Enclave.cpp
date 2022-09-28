@@ -9,9 +9,11 @@
 extern "C" {
 #include "./keystone_user.h"
 #include "common/sha3.h"
+#include <stdlib.h>
 }
 #include "ElfFile.hpp"
 #include "hash_util.hpp"
+
 
 namespace Keystone {
 
@@ -254,6 +256,13 @@ Enclave::prepareEnclave(uintptr_t alternatePhysAddr) {
 
   pMemory->init(pDevice, physAddr, minPages);
   return true;
+}
+
+
+Error
+Enclave::init(const char* eapppath, Params _params) {
+  const char* runtimepath = getenv("KEYSTONE_RUNTIME_PATH");
+  return this->init(eapppath, runtimepath, _params, (uintptr_t)0);
 }
 
 Error
