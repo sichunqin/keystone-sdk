@@ -15,6 +15,8 @@ endif()
 
 add_executable(${eapp_bin} ${eapp_src})
 target_link_libraries(${eapp_bin} "-nostdlib -static" ${KEYSTONE_LIB_EAPP} ${KEYSTONE_LIB_EDGE})
+set_target_properties(${eapp_bin}
+  PROPERTIES LINK_FLAGS "-T ${CMAKE_CURRENT_SOURCE_DIR}/app.lds")
 
 target_include_directories(${eapp_bin}
   PUBLIC ${KEYSTONE_SDK_DIR}/include/app
