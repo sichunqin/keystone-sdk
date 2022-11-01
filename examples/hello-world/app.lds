@@ -34,11 +34,13 @@ SECTIONS
     . += 0x40;
 
     PROVIDE(encrypted_enc_key = .);
-    . += 0x10;
+    . += 0x20;
   }
-  .bss : { *(.bss) }
-
-  . = ALIGN(0x1000);
-
+  .bss :
+  {
+    PROVIDE(bss_start = .);
+    *(.bss)
+    PROVIDE(bss_end = .);
+  }
   _end = .;
 }
