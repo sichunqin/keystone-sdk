@@ -9,6 +9,9 @@
 void
 EAPP_RETURN(unsigned long rval) __attribute__((noreturn));
 
+void
+INIT() __attribute__((noreturn));
+
 #define EAPP_ENTRY __attribute__((__section__(".text._start")))
 
 #endif /* _EAPP_UTILS_ */

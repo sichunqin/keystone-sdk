@@ -5,6 +5,7 @@ set(LDFLAGS     "-static")
 
 set(SOURCE_FILES
   encret.s
+  init.s
   string.c
   syscall.c
   tiny-malloc.c
