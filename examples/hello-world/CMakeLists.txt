@@ -22,8 +22,6 @@ target_include_directories(${eapp_bin}
   PUBLIC ${KEYSTONE_SDK_DIR}/include/app
   PUBLIC ${KEYSTONE_SDK_DIR}/include/edge)
 
-
-
 # host
 
 add_executable(${host_bin} ${host_src})
@@ -37,9 +35,9 @@ target_include_directories(${host_bin}
   PUBLIC ${KEYSTONE_SDK_DIR}/include/edge)
 
 add_custom_command(TARGET ${host_bin} POST_BUILD
-  COMMAND python ../../../keystone-tools/patchEapp.py --in ./${eapp_bin}
-  COMMAND mkdir -p ../../overlay/root/${package_name}
-  COMMAND cp ${eapp_bin} ${host_bin} ../../overlay/root/${package_name}
+  COMMAND mkdir -p ../../overlay/root/${eapp_bin}
+  COMMAND cp ${eapp_bin} ${host_bin} ../../overlay/root/${eapp_bin}/
+  COMMAND python ../../../keystone-tools/patchEapp.py --in ../../overlay/root/${eapp_bin}/${eapp_bin}
   )
 
 add_keystone_package(${eapp_bin}-package

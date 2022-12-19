@@ -21,20 +21,8 @@ SECTIONS
     BYTE(101)
     BYTE(109)
     BYTE(98)
-    PROVIDE(protocol_version = .);
-    . += 0x1;
-
-    PROVIDE(public_key = .);
-    . += 0x20;
-
-    PROVIDE(public_key_signature = .);
-    . += 0x40;
-
-    PROVIDE(image_signature = .);
-    . += 0x40;
-
-    PROVIDE(encrypted_enc_key = .);
-    . += 0x20;
+    PROVIDE(embed_data = .);
+    . += 300;
   }
   .bss :
   {

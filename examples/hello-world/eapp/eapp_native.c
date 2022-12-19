@@ -13,8 +13,8 @@ unsigned long ocall_print_string(char* string);
 extern unsigned char * bss_start;
 extern unsigned char * bss_end;
 int main(){
-  INIT();
-  memset(bss_start, 0, bss_end - bss_start + 1);
+  //INIT();
+  //memset(bss_start, 0, bss_end - bss_start + 1);
   ocall_print_string("Hello World");
 
   EAPP_RETURN(0);
