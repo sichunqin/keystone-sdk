@@ -14,6 +14,8 @@ set(SOURCE_FILES
   Memory.cpp
   PhysicalEnclaveMemory.cpp
   SimulatedEnclaveMemory.cpp
+  enclaveMemory.cpp
+  binFile.cpp
   )
 
 set(INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include/host)

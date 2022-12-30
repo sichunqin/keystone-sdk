@@ -1,6 +1,13 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+/*
+ * These are used to make use of C type-checking..
+ */
+typedef struct {
+  uintptr_t pte;
+} pte;
+
 #define RT_NOEXEC 0
 #define USER_NOEXEC 1
 #define RT_FULL 2
@@ -31,4 +38,7 @@
 #define KEYSTONE_ENCLAVE_INTERRUPTED 100002
 #define KEYSTONE_ENCLAVE_EDGE_CALL_HOST 100011
 
+#define RUNTIME_MEMORY_SIZE 0x18000
+#define RUNTIME_START_VA 0xffffffffc0000000
+#define EAPP_ENTRY_VA    0x00000000000100b0
 #endif

@@ -25,6 +25,8 @@ extern "C" {
 #include "KeystoneDevice.hpp"
 #include "Memory.hpp"
 #include "Params.hpp"
+#include "enclaveMemory.hpp"
+#include "binFile.hpp"
 
 namespace Keystone {
 
@@ -35,7 +37,10 @@ class Enclave {
   Params params;
   ElfFile* runtimeFile;
   ElfFile* enclaveFile;
+  binFile* runtimeBinFile;
+  binFile* eappBinFile;
   Memory* pMemory;
+  enclaveMemory* pEMemory;
   KeystoneDevice* pDevice;
   char hash[MDSIZE];
   hash_ctx_t hash_ctx;
@@ -43,10 +48,13 @@ class Enclave {
   void* shared_buffer;
   size_t shared_buffer_size;
   OcallFunc oFuncDispatch;
+  size_t eappbinSize;
   bool mapUntrusted(size_t size);
   bool allocPage(uintptr_t va, uintptr_t src, unsigned int mode);
   bool initStack(uintptr_t start, size_t size, bool is_rt);
+  bool initializeStack(uintptr_t start, size_t size, bool is_rt);
   Error loadUntrusted();
+  Error allocateUntrusted();
   bool mapElf(ElfFile* file);
   Error loadElf(ElfFile* file);
   Error validate_and_hash_enclave(struct runtime_params_t args);
@@ -54,6 +62,11 @@ class Enclave {
   bool initFiles(const char*, const char*);
   bool initDevice();
   bool prepareEnclave(uintptr_t alternatePhysAddr);
+  bool prepareMemory(uintptr_t alternatePhysAddr, const char *eappbinPath);
+
+  bool mapRuntime();
+  bool mapEappBinFile(const char* path);
+  bool mapRuntimeBinFile(const char* path);
   bool initMemory();
 
  public:
@@ -68,6 +81,11 @@ class Enclave {
   Error init(
       const char* eapppath, const char* runtimepath, Params _params,
       uintptr_t alternatePhysAddr);
+
+  Error initialize(
+      const char* eappBinPath, const char* runtimeBinPath, Params _params, uintptr_t alternatePhysAdd);
+  Error initialize(
+      const char* eappBinPath, Params _params);
   Error destroy();
   Error run(uintptr_t* ret = nullptr);
 };

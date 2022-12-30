@@ -12,10 +12,19 @@ extern "C" {
 #include <stdlib.h>
 }
 #include "ElfFile.hpp"
+#include "binFile.hpp"
 #include "hash_util.hpp"
 
 
 namespace Keystone {
+
+static size_t
+fstatFileSize(const char *path) {
+  int rc;
+  struct stat stat_buf;
+  rc = stat(path, &stat_buf);
+  return (rc == 0 ? stat_buf.st_size : 0);
+}
 
 Enclave::Enclave() {
   runtimeFile = NULL;
@@ -60,6 +69,19 @@ Enclave::loadUntrusted() {
   }
   return Error::Success;
 }
+Error
+Enclave::allocateUntrusted() {
+  uintptr_t va_start = ROUND_DOWN(params.getUntrustedMem(), PAGE_BITS);
+  uintptr_t va_end   = ROUND_UP(params.getUntrustedEnd(), PAGE_BITS);
+
+  while (va_start < va_end) {
+    if (!pEMemory->allocPage(va_start, 0, UTM_FULL)) {
+      return Error::PageAllocationFailure;
+    }
+    va_start += PAGE_SIZE;
+  }
+  return Error::Success;
+}
 
 /* This function will be deprecated when we implement freemem */
 bool
@@ -82,6 +104,28 @@ Enclave::initStack(uintptr_t start, size_t size, bool is_rt) {
 
   return true;
 }
+/* This function will be deprecated when we implement freemem */
+bool
+Enclave::initializeStack(uintptr_t start, size_t size, bool is_rt) {
+  static char nullpage[PAGE_SIZE] = {
+      0,
+  };
+  uintptr_t high_addr    = ROUND_UP(start, PAGE_BITS);
+  uintptr_t va_start_stk = ROUND_DOWN((high_addr - size), PAGE_BITS);
+  int stk_pages          = (high_addr - va_start_stk) / PAGE_SIZE;
+
+  for (int i = 0; i < stk_pages; i++) {
+    if (!pEMemory->allocPage(
+            va_start_stk, (uintptr_t)nullpage,
+            (is_rt ? RT_NOEXEC : USER_NOEXEC)))
+      return false;
+
+    va_start_stk += PAGE_SIZE;
+  }
+
+  return true;
+}
+
 
 bool
 Enclave::mapElf(ElfFile* elf) {
@@ -98,6 +142,105 @@ Enclave::mapElf(ElfFile* elf) {
     return false;
   }
 
+  return true;
+}
+
+bool
+Enclave::mapRuntime() {
+  size_t num_pages =
+      ROUND_DOWN(RUNTIME_MEMORY_SIZE, PAGE_BITS) / PAGE_SIZE;
+  if (pEMemory->epmAllocVspace(RUNTIME_START_VA, num_pages) != num_pages) {
+    ERROR("Failed to allocate vspace\n");
+    return false;
+  }
+  pEMemory->startRuntimeMem();
+
+  if (pEMemory->allocPages(num_pages)) {
+    ERROR("Failed to allocate space for runtime\n");
+    return false;
+  }
+  return true;
+}
+
+bool Enclave::mapRuntimeBinFile(const char* path){
+
+  runtimeBinFile = new binFile(path);
+  if (!runtimeBinFile->isValid()) {
+    ERROR("runtime file is not valid");
+    destroy();
+    return false;
+  }
+
+  size_t fsz = runtimeBinFile->getFileSize();
+  assert(fsz <= RUNTIME_MEMORY_SIZE);
+
+  size_t num_pages = ROUND_UP(RUNTIME_MEMORY_SIZE, PAGE_BITS) / PAGE_SIZE;
+  if (pEMemory->epmAllocVspace(RUNTIME_START_VA, num_pages) != num_pages) {
+    ERROR("Failed to allocate vspace for eapp\n");
+    return false;
+  }
+
+  pEMemory->startRuntimeMem();
+
+  uintptr_t va = RUNTIME_START_VA;
+  uintptr_t src = (uintptr_t) runtimeBinFile->getPtr();
+
+  while (va + PAGE_SIZE <= RUNTIME_START_VA + RUNTIME_MEMORY_SIZE) {
+      if (!pEMemory->allocPage(va, (uintptr_t)src, RT_FULL))
+        return false;
+
+      src += PAGE_SIZE;
+      va += PAGE_SIZE;
+    }
+  delete runtimeBinFile;
+  runtimeBinFile = NULL;
+  return true;
+}
+
+bool Enclave::mapEappBinFile(const char* path){
+
+  eappBinFile = new binFile(path);
+  if (!eappBinFile->isValid()) {
+    ERROR("eapp file is not valid");
+    destroy();
+    return false;
+  }
+
+  uintptr_t page_start_va = ROUND_DOWN(EAPP_ENTRY_VA, PAGE_BITS);
+  size_t fsz = eappBinFile->getFileSize();
+
+  size_t num_pages = ROUND_UP(fsz + EAPP_ENTRY_VA - page_start_va, PAGE_BITS) / PAGE_SIZE; ;
+  if (pEMemory->epmAllocVspace(page_start_va, num_pages) != num_pages) {
+    ERROR("Failed to allocate vspace for eapp\n");
+    return false;
+  }
+
+  pEMemory->startEappMem();
+
+  uintptr_t va = EAPP_ENTRY_VA;
+  uintptr_t src = (uintptr_t) eappBinFile->getPtr();
+
+  if (!IS_ALIGNED(va, PAGE_SIZE)) {
+      size_t offset = va - PAGE_DOWN(va);
+      size_t length = PAGE_UP(va) - va;
+      char page[PAGE_SIZE];
+      memset(page, 0, PAGE_SIZE);
+      memcpy(page + offset, (const void*)src, length);
+      if (!pEMemory->allocPage(PAGE_DOWN(va), (uintptr_t)page, USER_FULL))
+        return false;
+      va += length;
+      src += length;
+    }
+
+  while (va + PAGE_SIZE <= EAPP_ENTRY_VA + fsz) {
+      if (!pEMemory->allocPage(va, (uintptr_t)src, USER_FULL))
+        return false;
+
+      src += PAGE_SIZE;
+      va += PAGE_SIZE;
+    }
+  delete eappBinFile;
+  eappBinFile = NULL;
   return true;
 }
 
@@ -258,6 +401,41 @@ Enclave::prepareEnclave(uintptr_t alternatePhysAddr) {
   return true;
 }
 
+bool
+Enclave::prepareMemory(uintptr_t alternatePhysAddr, const char *eappbinPath) {
+  // FIXME: this will be deprecated with complete freemem support.
+  // We just add freemem size for now.
+  uint64_t minPages;
+  minPages = ROUND_UP(params.getFreeMemSize(), PAGE_BITS) / PAGE_SIZE;
+  eappbinSize = (uint64_t)fstatFileSize(eappbinPath);
+  if(eappbinSize == 0){
+    ERROR("Invalid enclave Bin file\n");
+    return false;
+  }
+  minPages += calculate_required_pages(
+      (uint64_t)eappbinSize, RUNTIME_MEMORY_SIZE);
+
+  if (params.isSimulated()) {
+    pMemory->init(0, 0, minPages);
+    return true;
+  }
+
+  /* Call Enclave Driver */
+  if (pDevice->create(minPages) != Error::Success) {
+    return false;
+  }
+
+  /* We switch out the phys addr as needed */
+  uintptr_t physAddr;
+  if (alternatePhysAddr) {
+    physAddr = alternatePhysAddr;
+  } else {
+    physAddr = pDevice->getPhysAddr();
+  }
+
+  pEMemory->init(pDevice, physAddr, minPages);
+  return true;
+}
 
 Error
 Enclave::init(const char* eapppath, Params _params) {
@@ -391,6 +569,100 @@ Enclave::init(
   return Error::Success;
 }
 
+Error
+Enclave::initialize(const char* eappBinPath, Params _params) {
+  const char* runtimeBinPath = getenv("KEYSTONE_RUNTIME_BIN_PATH");
+  return this->initialize(eappBinPath, runtimeBinPath, _params, (uintptr_t)0);
+}
+Error Enclave::initialize(const char* eappBinPath,const char* runtimeBinPath, Params _params, uintptr_t alternatePhysAddr){
+  params = _params;
+  if (params.isSimulated()) {
+    pMemory = new SimulatedEnclaveMemory();
+    pDevice = new MockKeystoneDevice();
+  } else {
+    pEMemory = new enclaveMemory();
+    pDevice = new KeystoneDevice();
+  }
+
+  if (!pDevice->initDevice(params)) {
+    destroy();
+    return Error::DeviceInitFailure;
+  }
+
+  if (!prepareMemory(alternatePhysAddr, eappBinPath)) {
+    destroy();
+    return Error::DeviceError;
+  }
+/*
+  if (!mapRuntime()) {
+    destroy();
+    return Error::VSpaceAllocationFailure;
+  }
+*/
+
+ if (!mapRuntimeBinFile(runtimeBinPath)) {
+    destroy();
+    return Error::VSpaceAllocationFailure;
+  }
+ if (!mapEappBinFile(eappBinPath)) {
+    destroy();
+    return Error::VSpaceAllocationFailure;
+  }
+
+
+/* initialize stack. If not using freemem */
+#ifndef USE_FREEMEM
+  if (!initializeStack(DEFAULT_STACK_START, DEFAULT_STACK_SIZE, 0)) {
+    ERROR("failed to init static stack");
+    destroy();
+    return Error::PageAllocationFailure;
+  }
+#endif /* USE_FREEMEM */
+
+  uintptr_t utm_free;
+  utm_free = pEMemory->allocUtm(params.getUntrustedSize());
+
+  if (!utm_free) {
+    ERROR("failed to init untrusted memory - ioctl() failed");
+    destroy();
+    return Error::DeviceError;
+  }
+
+  if (allocateUntrusted() != Error::Success) {
+    ERROR("failed to load untrusted");
+  }
+
+  struct runtime_params_t runtimeParams;
+  runtimeParams.runtime_entry = RUNTIME_START_VA;
+  runtimeParams.user_entry = EAPP_ENTRY_VA;
+  runtimeParams.untrusted_ptr =
+      reinterpret_cast<uintptr_t>(params.getUntrustedMem());
+  runtimeParams.untrusted_size =
+      reinterpret_cast<uintptr_t>(params.getUntrustedSize());
+
+  pEMemory->startFreeMem();
+
+  /* TODO: This should be invoked with some other function e.g., measure() */
+  if (params.isSimulated()) {
+    validate_and_hash_enclave(runtimeParams);
+  }
+
+  if (pDevice->finalize(
+          pEMemory->getRuntimePhysAddr(), pEMemory->getEappPhysAddr(),
+          pEMemory->getFreePhysAddr(), runtimeParams) != Error::Success) {
+    destroy();
+    return Error::DeviceError;
+  }
+  if (!mapUntrusted(params.getUntrustedSize())) {
+    ERROR(
+        "failed to finalize enclave - cannot obtain the untrusted buffer "
+        "pointer \n");
+    destroy();
+    return Error::DeviceMemoryMapError;
+  }
+
+  return Error::Success;
+}
 bool
 Enclave::mapUntrusted(size_t size) {
   if (size == 0) {
@@ -418,6 +690,15 @@ Enclave::destroy() {
   if (runtimeFile) {
     delete runtimeFile;
     runtimeFile = NULL;
+  }
+
+  if (runtimeBinFile) {
+    delete runtimeBinFile;
+    runtimeBinFile = NULL;
+  }
+  if (eappBinFile) {
+    delete eappBinFile;
+    eappBinFile = NULL;
   }
 
   return pDevice->destroy();
