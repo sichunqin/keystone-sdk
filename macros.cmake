@@ -90,7 +90,7 @@ macro(add_eyrie_runtime target_name tag plugins) # the files are passed via ${AR
     GIT_REPOSITORY git@github.com:keystone-enclave/keystone-runtime.git
     GIT_TAG ${tag}
     CONFIGURE_COMMAND ""
-    UPDATE_COMMAND git fetch
+    UPDATE_COMMAND git status
     BUILD_COMMAND ./build.sh ${plugins}
     BUILD_IN_SOURCE TRUE
     INSTALL_COMMAND "")

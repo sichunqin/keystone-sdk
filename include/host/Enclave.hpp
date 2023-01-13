@@ -66,6 +66,8 @@ class Enclave {
 
   bool mapRuntime();
   bool mapEappBinFile(const char* path);
+  bool loadEappElfFile(const char* path);
+  bool loadEappBinFile(const char* path);
   bool mapRuntimeBinFile(const char* path);
   bool initMemory();
 

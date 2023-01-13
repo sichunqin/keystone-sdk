@@ -33,6 +33,7 @@
 struct runtime_params_t {
   uintptr_t runtime_entry;
   uintptr_t user_entry;
+  uintptr_t user_size;
   uintptr_t untrusted_ptr;
   uintptr_t untrusted_size;
 };

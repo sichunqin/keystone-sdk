@@ -55,7 +55,15 @@ enclaveMemory::pt_idx(uintptr_t addr, int level) {
   size_t idx = addr >> (RISCV_PGLEVEL_BITS * level + RISCV_PGSHIFT);
   return idx & ((1 << RISCV_PGLEVEL_BITS) - 1);
 }
+bool enclaveMemory::copyPage(uintptr_t src){
+  uintptr_t page_addr;
+  uintptr_t* pFreeList = &epmFreeList;
+  page_addr = *pFreeList >> PAGE_BITS;
+  *pFreeList += PAGE_SIZE;
 
+  writeMem(src, (uintptr_t)page_addr << PAGE_BITS, PAGE_SIZE);
+  return true;
+}
 bool
 enclaveMemory::allocPage(uintptr_t va, uintptr_t src, unsigned int mode) {
   uintptr_t page_addr;
@@ -188,7 +196,7 @@ enclaveMemory::allocUtm(size_t size) {
 }
 
 uintptr_t
-enclaveMemory::allocPages(size_t page_num) {
+enclaveMemory::allocReservedPages(size_t page_num) {
 
   uintptr_t ret;
   ret = epmFreeList;
@@ -240,3 +248,4 @@ uintptr_t enclaveMemory::getMappedAddr(uintptr_t pa, size_t size){
   return (uintptr_t)va_start;
 }
 }  // namespace Keystone
+

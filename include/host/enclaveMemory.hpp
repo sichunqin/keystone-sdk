@@ -72,8 +72,9 @@ class enclaveMemory {
       KeystoneDevice* dev, uintptr_t phys_addr, size_t min_pages);
 
   bool allocPage(uintptr_t eva, uintptr_t src, unsigned int mode);
+  bool copyPage(uintptr_t src);
   size_t epmAllocVspace(uintptr_t addr, size_t num_pages);
-  uintptr_t allocPages(size_t page_num);
+  uintptr_t allocReservedPages(size_t page_num);
 
   // getters to be deprecated
   uintptr_t getStartAddr() { return startAddr; }
@@ -96,6 +97,7 @@ class enclaveMemory {
   uintptr_t allocUtm(size_t size);
   uintptr_t readMem(uintptr_t src, size_t size);
   void writeMem(uintptr_t src, uintptr_t dst, size_t size);
+  uintptr_t allocReserved(size_t num_pages);
 
  protected:
   pte* __ept_walk_create(uintptr_t addr);
