@@ -57,6 +57,7 @@ class Enclave {
   Error allocateUntrusted();
   bool mapElf(ElfFile* file);
   Error loadElf(ElfFile* file);
+  bool loadEappElfFile(const char* path);
   Error validate_and_hash_enclave(struct runtime_params_t args);
 
   bool initFiles(const char*, const char*);
@@ -65,10 +66,6 @@ class Enclave {
   bool prepareMemory(uintptr_t alternatePhysAddr, const char *eappbinPath);
 
   bool mapRuntime();
-  bool mapEappBinFile(const char* path);
-  bool loadEappElfFile(const char* path);
-  bool loadEappBinFile(const char* path);
-  bool mapRuntimeBinFile(const char* path);
   bool initMemory();
 
  public:
@@ -85,7 +82,7 @@ class Enclave {
       uintptr_t alternatePhysAddr);
 
   Error initialize(
-      const char* eappBinPath, const char* runtimeBinPath, Params _params, uintptr_t alternatePhysAdd);
+      const char* eappBinPath, Params _params, uintptr_t alternatePhysAdd);
   Error initialize(
       const char* eappBinPath, Params _params);
   Error destroy();

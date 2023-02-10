@@ -1,7 +1,7 @@
 project(keystone-eapp C ASM)
 
-set(CFLAGS      "-Wall -Werror")
-set(LDFLAGS     "-static")
+set(CFLAGS      "-Wall -Werror -g")
+set(LDFLAGS     "-static -g")
 
 set(SOURCE_FILES
   encret.s

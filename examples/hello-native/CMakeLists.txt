@@ -5,12 +5,6 @@ set(host_src host/host_native.cpp)
 set(package_name "hello-native.ke")
 set(package_script "./hello-native-runner hello-native eyrie-rt")
 
-if(RISCV32)
-  set(eyrie_plugins "rv32 freemem")
-else()
-  set(eyrie_plugins "freemem")
-endif()
-
 # eapp
 
 add_executable(${eapp_bin} ${eapp_src})
@@ -35,19 +29,13 @@ target_include_directories(${host_bin}
 # add target for Eyrie runtime (see keystone.cmake)
 
 set(eyrie_files_to_copy .options_log eyrie-rt)
-add_eyrie_runtime(${eapp_bin}-eyrie
-  "v1.0.0"
-  ${eyrie_plugins}
-  ${eyrie_files_to_copy})
 
 # add target for packaging (see keystone.cmake)
 
 add_keystone_package(${eapp_bin}-package
   ${package_name}
   ${package_script}
-  ${eyrie_files_to_copy} ${eapp_bin} ${host_bin})
-
-add_dependencies(${eapp_bin}-package ${eapp_bin}-eyrie)
+ ${eapp_bin} ${host_bin})
 
 # add package to the top-level target
 add_dependencies(examples ${eapp_bin}-package)

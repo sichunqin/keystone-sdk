@@ -14,7 +14,7 @@ endif()
 # eapp
 
 add_executable(${eapp_bin} ${eapp_src})
-target_link_libraries(${eapp_bin} "-nostdlib -static" ${KEYSTONE_LIB_EAPP} ${KEYSTONE_LIB_EDGE})
+target_link_libraries(${eapp_bin} "-nostdlib -static -g" ${KEYSTONE_LIB_EAPP} ${KEYSTONE_LIB_EDGE})
 set_target_properties(${eapp_bin}
   PROPERTIES LINK_FLAGS "-T ${CMAKE_CURRENT_SOURCE_DIR}/app.lds")
 
@@ -46,7 +46,7 @@ add_keystone_package(${eapp_bin}-package
   ${eapp_bin} ${host_bin})
 
 add_custom_command(OUTPUT copy_file DEPENDS ${eapp_bin}-package
-  COMMAND cp ${eapp_bin}-package  ../../overlay/root/
+  COMMAND cp ${eapp_bin}-package  ../../overlay/root/examples
   )
 
 # add package to the top-level target

@@ -161,105 +161,7 @@ Enclave::mapRuntime() {
 
 }
 
-bool Enclave::mapRuntimeBinFile(const char* path){
-
-  runtimeBinFile = new binFile(path);
-  if (!runtimeBinFile->isValid()) {
-    ERROR("runtime file is not valid");
-    destroy();
-    return false;
-  }
-
-  size_t fsz = runtimeBinFile->getFileSize();
-  assert(fsz <= RUNTIME_MEMORY_SIZE);
-
-  size_t num_pages = ROUND_UP(RUNTIME_MEMORY_SIZE, PAGE_BITS) / PAGE_SIZE;
-  if (pEMemory->epmAllocVspace(RUNTIME_ENTRY_VA, num_pages) != num_pages) {
-    ERROR("Failed to allocate vspace for eapp\n");
-    return false;
-  }
-
-  pEMemory->startRuntimeMem();
-
-  uintptr_t va = RUNTIME_ENTRY_VA;
-  uintptr_t src = (uintptr_t) runtimeBinFile->getPtr();
-
-  while (va + PAGE_SIZE <= RUNTIME_ENTRY_VA + RUNTIME_MEMORY_SIZE) {
-    if (!pEMemory->allocPage(va, (uintptr_t)src, RT_FULL))
-      return false;
-      src += PAGE_SIZE;
-      va += PAGE_SIZE;
-    }
-  delete runtimeBinFile;
-  runtimeBinFile = NULL;
-  return true;
-}
-
-bool Enclave::mapEappBinFile(const char* path){
-
-  eappBinFile = new binFile(path);
-  if (!eappBinFile->isValid()) {
-    ERROR("eapp file is not valid");
-    destroy();
-    return false;
-  }
-
-  uintptr_t page_start_va = ROUND_DOWN(EAPP_ENTRY_VA, PAGE_BITS);
-  size_t fsz = eappBinFile->getFileSize();
-
-  size_t num_pages = ROUND_UP(fsz + EAPP_ENTRY_VA - page_start_va, PAGE_BITS) / PAGE_SIZE; ;
-  if (pEMemory->epmAllocVspace(page_start_va, num_pages) != num_pages) {
-    ERROR("Failed to allocate vspace for eapp\n");
-    return false;
-  }
-
-  pEMemory->startEappMem();
-
-  uintptr_t va = EAPP_ENTRY_VA;
-  uintptr_t src = (uintptr_t) eappBinFile->getPtr();
-
-  if (!IS_ALIGNED(va, PAGE_SIZE)) {
-    size_t offset = va - PAGE_DOWN(va);
-    size_t length = PAGE_UP(va) - va;
-    char page[PAGE_SIZE];
-    memset(page, 0, PAGE_SIZE);
-    memcpy(page + offset, (const void*)src, length);
-    if (!pEMemory->allocPage(PAGE_DOWN(va), (uintptr_t)page, USER_FULL))
-      return false;
-    va += length;
-    src += length;
-  }
-
-  while (va + PAGE_SIZE <= EAPP_ENTRY_VA + fsz) {
-    if (!pEMemory->allocPage(va, (uintptr_t)src, USER_FULL))
-      return false;
-
-    src += PAGE_SIZE;
-    va += PAGE_SIZE;
-    }
-  delete eappBinFile;
-  eappBinFile = NULL;
-  return true;
-}
 bool Enclave::loadEappElfFile(const char* path){
-  if (enclaveFile) {
-    ERROR("ELF files already initialized");
-    return false;
-  }
-
-  enclaveFile = new ElfFile(path);
-
-  if (!enclaveFile->initialize(false)) {
-    ERROR("Invalid enclave ELF\n");
-    destroy();
-    return false;
-  }
-
-  if (!enclaveFile->isValid()) {
-    ERROR("enclave file is not valid");
-    destroy();
-    return false;
-  }
 
   pEMemory->allocReservedPages(2);
 
@@ -327,52 +229,6 @@ bool Enclave::loadEappElfFile(const char* path){
 
   return true;
 }
-
-bool Enclave::loadEappBinFile(const char* path){
-
-  eappBinFile = new binFile(path);
-  if (!eappBinFile->isValid()) {
-    ERROR("eapp file is not valid");
-    destroy();
-    return false;
-  }
-
-  uintptr_t page_start_va = ROUND_DOWN(EAPP_ENTRY_VA, PAGE_BITS);
-  size_t fsz = eappBinFile->getFileSize();
-
-  size_t num_pages = ROUND_UP(fsz + EAPP_ENTRY_VA - page_start_va, PAGE_BITS) / PAGE_SIZE;
-
-  pEMemory->allocReservedPages(2);
-
-  pEMemory->startEappMem();
-
-  uintptr_t va = EAPP_ENTRY_VA;
-  uintptr_t src = (uintptr_t) eappBinFile->getPtr();
-
-  if (!IS_ALIGNED(va, PAGE_SIZE)) {
-    size_t offset = va - PAGE_DOWN(va);
-    size_t length = PAGE_UP(va) - va;
-    char page[PAGE_SIZE];
-    memset(page, 0, PAGE_SIZE);
-    memcpy(page + offset, (const void*)src, length);
-
-    if (!pEMemory->copyPage((uintptr_t)page))
-      return false;
-    va += length;
-    src += length;
-  }
-
-  while (va + PAGE_SIZE <= EAPP_ENTRY_VA + fsz) {
-    if (!pEMemory->copyPage((uintptr_t)src))
-      return false;
-      src += PAGE_SIZE;
-      va += PAGE_SIZE;
-    }
-  delete eappBinFile;
-  eappBinFile = NULL;
-  return true;
-}
-
 
 Error
 Enclave::loadElf(ElfFile* elf) {
@@ -537,7 +393,22 @@ Enclave::prepareMemory(uintptr_t alternatePhysAddr, const char *eappbinPath) {
   // We just add freemem size for now.
   uint64_t minPages;
   minPages = ROUND_UP(params.getFreeMemSize(), PAGE_BITS) / PAGE_SIZE;
-  eappbinSize = (uint64_t)fstatFileSize(eappbinPath);
+  //eappbinSize = (uint64_t)fstatFileSize(eappbinPath);
+  enclaveFile = new ElfFile(eappbinPath);
+
+  if (!enclaveFile->initialize(false)) {
+    ERROR("Invalid enclave ELF\n");
+    destroy();
+    return false;
+  }
+
+  if (!enclaveFile->isValid()) {
+    ERROR("enclave file is not valid");
+    destroy();
+    return false;
+  }
+
+  eappbinSize = enclaveFile->getTotalMemorySize();
   if(eappbinSize == 0){
     ERROR("Invalid enclave Bin file\n");
     return false;
@@ -664,6 +535,7 @@ Enclave::init(
       reinterpret_cast<uintptr_t>(runtimeFile->getEntryPoint());
   runtimeParams.user_entry =
       reinterpret_cast<uintptr_t>(enclaveFile->getEntryPoint());
+  runtimeParams.user_size = 0;
   runtimeParams.untrusted_ptr =
       reinterpret_cast<uintptr_t>(params.getUntrustedMem());
   runtimeParams.untrusted_size =
@@ -701,10 +573,10 @@ Enclave::init(
 
 Error
 Enclave::initialize(const char* eappBinPath, Params _params) {
-  const char* runtimeBinPath = getenv("KEYSTONE_RUNTIME_BIN_PATH");
-  return this->initialize(eappBinPath, runtimeBinPath, _params, (uintptr_t)0);
+
+  return this->initialize(eappBinPath, _params, (uintptr_t)0);
 }
-Error Enclave::initialize(const char* eappBinPath,const char* runtimeBinPath, Params _params, uintptr_t alternatePhysAddr){
+Error Enclave::initialize(const char* eappBinPath,Params _params, uintptr_t alternatePhysAddr){
   params = _params;
   if (params.isSimulated()) {
     pMemory = new SimulatedEnclaveMemory();
@@ -723,28 +595,13 @@ Error Enclave::initialize(const char* eappBinPath,const char* runtimeBinPath, Pa
     destroy();
     return Error::DeviceError;
   }
-/*
- if (!mapRuntimeBinFile(runtimeBinPath)) {
-    destroy();
-    return Error::VSpaceAllocationFailure;
-  }
- if (!mapEappBinFile(eappBinPath)) {
-    destroy();
-    return Error::VSpaceAllocationFailure;
-  }
-*/
+
   if (!mapRuntime()) {
     ERROR("failed to mapRuntime()");
     destroy();
     return Error::PageAllocationFailure;
   }
-  /*
- if (!loadEappBinFile(eappBinPath)) {
-    ERROR("failed to loadEappBinFile()");
-    destroy();
-    return Error::PageAllocationFailure;
-  }
-  */
+
   if (!loadEappElfFile(eappBinPath)) {
     ERROR("failed to loadEappBinFile()");
     destroy();
@@ -777,7 +634,9 @@ Error Enclave::initialize(const char* eappBinPath,const char* runtimeBinPath, Pa
   struct runtime_params_t runtimeParams;
 
   runtimeParams.runtime_entry = RUNTIME_ENTRY_VA;
-  runtimeParams.user_entry = EAPP_ENTRY_VA;
+  runtimeParams.user_entry =
+      reinterpret_cast<uintptr_t>(enclaveFile->getEntryPoint());
+
   runtimeParams.user_size = enclaveFile->getTotalMemorySize();
   runtimeParams.untrusted_ptr =
       reinterpret_cast<uintptr_t>(params.getUntrustedMem());

@@ -10,6 +10,7 @@ endif()
 set(package_name "tests.ke")
 set(package_script "./run-test.sh")
 
+set(CMAKE_C_FLAGS     " -g ")
 ###############################################
 #                Test Apps                    #
 ###############################################
@@ -92,7 +93,7 @@ file(REMOVE_RECURSE ${CMAKE_CURRENT_BINARY_DIR}/tmp)
 
 # linker flags for all tests
 set_target_properties(${all_test_bins}
-  PROPERTIES LINK_FLAGS "-nostdlib -static -T ${CMAKE_CURRENT_SOURCE_DIR}/app.lds")
+  PROPERTIES LINK_FLAGS "-nostdlib -static -T ${CMAKE_CURRENT_SOURCE_DIR}/app.lds -g")
 ###############################################
 
 # host
