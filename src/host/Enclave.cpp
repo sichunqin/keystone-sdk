@@ -12,7 +12,7 @@ extern "C" {
 #include <stdlib.h>
 }
 #include "ElfFile.hpp"
-#include "binFile.hpp"
+
 #include "hash_util.hpp"
 
 
@@ -29,8 +29,7 @@ fstatFileSize(const char *path) {
 Enclave::Enclave() {
   runtimeFile = NULL;
   enclaveFile = NULL;
-  runtimeBinFile = NULL;
-  eappBinFile = NULL;
+
 }
 
 Enclave::~Enclave() {
@@ -576,7 +575,7 @@ Enclave::initialize(const char* eappBinPath, Params _params) {
 
   return this->initialize(eappBinPath, _params, (uintptr_t)0);
 }
-Error Enclave::initialize(const char* eappBinPath,Params _params, uintptr_t alternatePhysAddr){
+Error Enclave::initialize(const char* eappPath,Params _params, uintptr_t alternatePhysAddr){
   params = _params;
   if (params.isSimulated()) {
     pMemory = new SimulatedEnclaveMemory();
@@ -591,7 +590,7 @@ Error Enclave::initialize(const char* eappBinPath,Params _params, uintptr_t alte
     return Error::DeviceInitFailure;
   }
 
-  if (!prepareMemory(alternatePhysAddr, eappBinPath)) {
+  if (!prepareMemory(alternatePhysAddr, eappPath)) {
     destroy();
     return Error::DeviceError;
   }
@@ -602,7 +601,7 @@ Error Enclave::initialize(const char* eappBinPath,Params _params, uintptr_t alte
     return Error::PageAllocationFailure;
   }
 
-  if (!loadEappElfFile(eappBinPath)) {
+  if (!loadEappElfFile(eappPath)) {
     ERROR("failed to loadEappBinFile()");
     destroy();
     return Error::PageAllocationFailure;
@@ -697,12 +696,6 @@ Enclave::destroy() {
     delete runtimeFile;
     runtimeFile = NULL;
   }
-
-  if (eappBinFile) {
-    delete eappBinFile;
-    eappBinFile = NULL;
-  }
-
   return pDevice->destroy();
 }
 

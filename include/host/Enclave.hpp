@@ -26,7 +26,6 @@ extern "C" {
 #include "Memory.hpp"
 #include "Params.hpp"
 #include "enclaveMemory.hpp"
-#include "binFile.hpp"
 
 namespace Keystone {
 
@@ -37,8 +36,7 @@ class Enclave {
   Params params;
   ElfFile* runtimeFile;
   ElfFile* enclaveFile;
-  binFile* runtimeBinFile;
-  binFile* eappBinFile;
+
   Memory* pMemory;
   enclaveMemory* pEMemory;
   KeystoneDevice* pDevice;
@@ -82,9 +80,9 @@ class Enclave {
       uintptr_t alternatePhysAddr);
 
   Error initialize(
-      const char* eappBinPath, Params _params, uintptr_t alternatePhysAdd);
+      const char* eappPath, Params _params, uintptr_t alternatePhysAdd);
   Error initialize(
-      const char* eappBinPath, Params _params);
+      const char* eappPath, Params _params);
   Error destroy();
   Error run(uintptr_t* ret = nullptr);
 };
