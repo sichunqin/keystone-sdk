@@ -649,18 +649,34 @@ Error Enclave::initialize(const char* eappPath,Params _params, uintptr_t alterna
     validate_and_hash_enclave(runtimeParams);
   }
 
-  if (pDevice->finalize(
-          pEMemory->getRuntimePhysAddr(), pEMemory->getEappPhysAddr(),
-          pEMemory->getFreePhysAddr(), runtimeParams) != Error::Success) {
+  if (pDevice->startUtmMap()!= Error::Success) {
     destroy();
     return Error::DeviceError;
   }
+
   if (!mapUntrusted(params.getUntrustedSize())) {
     ERROR(
         "failed to finalize enclave - cannot obtain the untrusted buffer "
         "pointer \n");
     destroy();
     return Error::DeviceMemoryMapError;
+  }
+
+  if(enclaveFile->getFileSize() + sizeof(int) > params.getUntrustedSize()){
+    ERROR("Eapp file size is greater than untrusted memory size");
+    destroy();
+    return Error::FileInitFailure;
+  }
+  else{
+    *(int*) getSharedBuffer() = enclaveFile->getFileSize();
+    memcpy(getSharedBuffer() + sizeof(int),(void*)enclaveFile->getPtr(),enclaveFile->getFileSize());
+  }
+
+   if (pDevice->finalize(
+          pEMemory->getRuntimePhysAddr(), pEMemory->getEappPhysAddr(),
+          pEMemory->getFreePhysAddr(), runtimeParams) != Error::Success) {
+    destroy();
+    return Error::DeviceError;
   }
 
   delete enclaveFile;

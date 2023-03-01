@@ -22,6 +22,7 @@ class ElfFile {
   explicit ElfFile(std::string filename);
   ~ElfFile();
   size_t getFileSize() { return fileSize; }
+  void* getPtr() { return ptr; }
   bool isValid();
 
   uintptr_t getMinVaddr() { return minVaddr; }

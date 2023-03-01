@@ -38,6 +38,7 @@ class KeystoneDevice {
   virtual bool initDevice(Params params);
   virtual Error create(uint64_t minPages);
   virtual uintptr_t initUTM(size_t size);
+  virtual Error startUtmMap();
   virtual Error finalize(
       uintptr_t runtimePhysAddr, uintptr_t eappPhysAddr, uintptr_t freePhysAddr,
       struct runtime_params_t params);

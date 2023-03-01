@@ -56,6 +56,18 @@ KeystoneDevice::finalize(
   return Error::Success;
 }
 
+Error KeystoneDevice::startUtmMap(){
+  struct keystone_ioctl_create_enclave encl;
+  encl.eid           = eid;
+
+  if (ioctl(fd, KEYSTONE_IOC_UTM_MAP_START, &encl)) {
+    perror("ioctl error");
+    return Error::IoctlErrorFinalize;
+  }
+  return Error::Success;
+
+}
+
 Error
 KeystoneDevice::destroy() {
   struct keystone_ioctl_create_enclave encl;
@@ -127,7 +139,9 @@ KeystoneDevice::map(uintptr_t addr, size_t size) {
   assert(fd >= 0);
   void* ret;
   ret = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, addr);
-  assert(ret != MAP_FAILED);
+  if(ret == MAP_FAILED){
+    assert(ret != MAP_FAILED);
+  }
   return ret;
 }
 
