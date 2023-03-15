@@ -46,7 +46,7 @@ class Enclave {
   void* shared_buffer;
   size_t shared_buffer_size;
   OcallFunc oFuncDispatch;
-  size_t eappbinSize;
+  size_t eappSize;
   bool mapUntrusted(size_t size);
   bool allocPage(uintptr_t va, uintptr_t src, unsigned int mode);
   bool initStack(uintptr_t start, size_t size, bool is_rt);

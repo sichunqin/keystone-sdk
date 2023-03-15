@@ -395,6 +395,7 @@ Enclave::prepareMemory(uintptr_t alternatePhysAddr, const char *eappbinPath) {
   //eappbinSize = (uint64_t)fstatFileSize(eappbinPath);
   enclaveFile = new ElfFile(eappbinPath);
 
+/*
   if (!enclaveFile->initialize(false)) {
     ERROR("Invalid enclave ELF\n");
     destroy();
@@ -408,12 +409,15 @@ Enclave::prepareMemory(uintptr_t alternatePhysAddr, const char *eappbinPath) {
   }
 
   eappbinSize = enclaveFile->getTotalMemorySize();
-  if(eappbinSize == 0){
+  */
+  eappSize = enclaveFile->getFileSize();
+
+  if(eappSize == 0){
     ERROR("Invalid enclave Bin file\n");
     return false;
   }
   minPages += calculate_required_pages(
-      (uint64_t)eappbinSize, RUNTIME_MEMORY_SIZE);
+      (uint64_t)eappSize, RUNTIME_MEMORY_SIZE);
 
   if (params.isSimulated()) {
     pMemory->init(0, 0, minPages);
@@ -595,28 +599,6 @@ Error Enclave::initialize(const char* eappPath,Params _params, uintptr_t alterna
     return Error::DeviceError;
   }
 
-  if (!mapRuntime()) {
-    ERROR("failed to mapRuntime()");
-    destroy();
-    return Error::PageAllocationFailure;
-  }
-
-  if (!loadEappElfFile(eappPath)) {
-    ERROR("failed to loadEappBinFile()");
-    destroy();
-    return Error::PageAllocationFailure;
-  }
-
-/* initialize stack. If not using freemem */
-#ifndef USE_FREEMEM
-  if (!initializeStack(DEFAULT_STACK_START, DEFAULT_STACK_SIZE, 0)) {
-    ERROR("failed to init static stack");
-    destroy();
-    return Error::PageAllocationFailure;
-  }
-
-#endif /* USE_FREEMEM */
-
   uintptr_t utm_free;
   utm_free = pEMemory->allocUtm(params.getUntrustedSize());
 
@@ -626,28 +608,14 @@ Error Enclave::initialize(const char* eappPath,Params _params, uintptr_t alterna
     return Error::DeviceError;
   }
 
-  if (allocateUntrusted() != Error::Success) {
-    ERROR("failed to load untrusted");
-  }
-
   struct runtime_params_t runtimeParams;
 
-  runtimeParams.runtime_entry = RUNTIME_ENTRY_VA;
-  runtimeParams.user_entry =
-      reinterpret_cast<uintptr_t>(enclaveFile->getEntryPoint());
+  runtimeParams.runtime_entry = 0;
+  runtimeParams.user_entry = 0;
 
-  runtimeParams.user_size = enclaveFile->getTotalMemorySize();
-  runtimeParams.untrusted_ptr =
-      reinterpret_cast<uintptr_t>(params.getUntrustedMem());
-  runtimeParams.untrusted_size =
-      reinterpret_cast<uintptr_t>(params.getUntrustedSize());
-
-  pEMemory->startFreeMem();
-
-  /* TODO: This should be invoked with some other function e.g., measure() */
-  if (params.isSimulated()) {
-    validate_and_hash_enclave(runtimeParams);
-  }
+  runtimeParams.user_size = 0;
+  runtimeParams.untrusted_ptr = reinterpret_cast<uintptr_t>(params.getUntrustedMem());
+  runtimeParams.untrusted_size = reinterpret_cast<uintptr_t>(params.getUntrustedSize());
 
   if (pDevice->startUtmMap()!= Error::Success) {
     destroy();
